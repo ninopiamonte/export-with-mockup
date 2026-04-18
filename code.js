@@ -5,7 +5,7 @@ const SLOT_HEIGHT = 874;
 figma.showUI(__html__, {
   width: UI_SIZE.width,
   height: UI_SIZE.height,
-  themeColors: true
+  themeColors: true,
 });
 
 function isExportableNode(node) {
@@ -13,7 +13,11 @@ function isExportableNode(node) {
     return false;
   }
 
-  return typeof node.exportAsync === "function" && "width" in node && "height" in node;
+  return (
+    typeof node.exportAsync === "function" &&
+    "width" in node &&
+    "height" in node
+  );
 }
 
 function getSelectedNodes() {
@@ -38,8 +42,8 @@ async function exportNode(node, multiplier) {
     format: "PNG",
     constraint: {
       type: "SCALE",
-      value: Math.max(0.1, coverScale * multiplier)
-    }
+      value: Math.max(0.1, coverScale * multiplier),
+    },
   });
 
   return {
@@ -47,7 +51,7 @@ async function exportNode(node, multiplier) {
     name: sanitizeName(node.name, "frame"),
     width,
     height,
-    bytes: Array.from(bytes)
+    bytes: Array.from(bytes),
   };
 }
 
@@ -55,14 +59,23 @@ async function sendSelectionState() {
   const nodes = getSelectedNodes();
   const message = {
     type: "SELECTION_STATE",
-    count: nodes.length
+    count: nodes.length,
   };
 
   if (nodes.length > 0) {
+    const node = nodes[0];
+    const width = typeof node.width === "number" ? node.width : SLOT_WIDTH;
+    const height = typeof node.height === "number" ? node.height : SLOT_HEIGHT;
+
+    if (width !== SLOT_WIDTH || height !== SLOT_HEIGHT) {
+      message.dimensionWarning = `Frame is ${width}x${height}, expected ${SLOT_WIDTH}x${SLOT_HEIGHT}`;
+    }
+
     try {
-      message.preview = await exportNode(nodes[0], 0.45);
+      message.preview = await exportNode(node, 0.45);
     } catch (error) {
-      message.previewError = error instanceof Error ? error.message : String(error);
+      message.previewError =
+        error instanceof Error ? error.message : String(error);
     }
   }
 
@@ -84,7 +97,7 @@ figma.ui.onmessage = async (msg) => {
     if (nodes.length === 0) {
       figma.ui.postMessage({
         type: "EXPORT_ERROR",
-        message: "Select at least one frame."
+        message: "Select at least one frame.",
       });
       return;
     }
@@ -100,20 +113,26 @@ figma.ui.onmessage = async (msg) => {
 
       figma.ui.postMessage({
         type: "EXPORT_RESULT",
-        items
+        items,
       });
     } catch (error) {
       figma.ui.postMessage({
         type: "EXPORT_ERROR",
-        message: error instanceof Error ? error.message : String(error)
+        message: error instanceof Error ? error.message : String(error),
       });
     }
     return;
   }
 
   if (msg.type === "RESIZE_UI") {
-    const width = Math.max(280, Math.min(420, Number(msg.width) || UI_SIZE.width));
-    const height = Math.max(360, Math.min(640, Number(msg.height) || UI_SIZE.height));
+    const width = Math.max(
+      280,
+      Math.min(420, Number(msg.width) || UI_SIZE.width),
+    );
+    const height = Math.max(
+      360,
+      Math.min(640, Number(msg.height) || UI_SIZE.height),
+    );
     figma.ui.resize(width, height);
     return;
   }
